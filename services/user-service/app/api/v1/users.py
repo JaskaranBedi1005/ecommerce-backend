@@ -63,3 +63,10 @@ async def update_me(
     user_repo = UserRepository(db)
     updated = await user_repo.update(current_user, update_data)
     return updated
+
+@router.get("/health")
+async def health_check():
+    return {
+        "status": "ok",
+        "service": "user-service"
+    }
