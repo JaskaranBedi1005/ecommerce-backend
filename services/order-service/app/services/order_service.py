@@ -82,6 +82,9 @@ class OrderService:
         order_id: str,
         user_id: str | None = None
     ) -> OrderResponse:
+        if not order_id.strip():
+            raise ValueError("order_id cannot be empty")
+
         order = await self.query.get_by_id(order_id, user_id)
         return OrderResponse(
             id=order.id,
@@ -95,6 +98,8 @@ class OrderService:
             created_at=order.created_at,
             updated_at=order.updated_at,
         )
+
+    
 
     async def get_user_orders(
         self,
