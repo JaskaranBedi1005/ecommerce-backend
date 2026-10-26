@@ -77,24 +77,7 @@ class OrderService:
             updated_at=order.updated_at,
         )
 
-    async def get_order(
-        self,
-        order_id: int,
-        user_id: str | None = None
-    ) -> OrderResponse:
-        order = await self.query.get_by_id(order_id, user_id)
-        return OrderResponse(
-            id=order.id,
-            user_id=order.user_id,
-            status=order.status,
-            total=order.total,
-            shipping_address=order.shipping_address,
-            notes=order.notes,
-            items=[],
-            events=[],
-            created_at=order.created_at,
-            updated_at=order.updated_at,
-        )
+    
 
     async def get_user_orders(
         self,
