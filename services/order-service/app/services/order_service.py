@@ -79,7 +79,7 @@ class OrderService:
 
     async def get_order(
         self,
-        order_id: str,
+        order_id: int,
         user_id: str | None = None
     ) -> OrderResponse:
         order = await self.query.get_by_id(order_id, user_id)
