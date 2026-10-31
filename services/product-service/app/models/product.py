@@ -5,8 +5,7 @@ from decimal import Decimal
 from sqlalchemy import String, Boolean, DateTime, Numeric, Integer, ForeignKey, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.core.database import Base
-from decimal import BasicContext
-from datetime import _Date
+
 
 class Category(Base):
     __tablename__ = "categories"
@@ -109,6 +108,17 @@ class Product(Base):
         back_populates="products",
         lazy="select"
     )
+
+    @property
+    def is_available(self) -> bool:
+        """Determina si el producto está activo y tiene existencias disponibles."""
+        return self.is_active and self.stock > 0
+
+    def check_stock_availability(self, requested_quantity: int = 1) -> bool:
+        """Verifica si hay stock suficiente y el producto está activo."""
+        if requested_quantity <= 0:
+            return False
+        return self.is_active and self.stock >= requested_quantity
 
     def __repr__(self) -> str:
         return f"<Product id={self.id} name={self.name} price={self.price}>"

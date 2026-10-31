@@ -4,7 +4,7 @@ from app.repositories.product_repository import ProductRepository, CategoryRepos
 from app.core.cache import CacheService
 from app.schemas.product import (
     ProductCreate, ProductUpdate, ProductResponse,
-    ProductListResponse, CategoryCreate
+    ProductListResponse, CategoryCreate, ProductAvailabilityResponse
 )
 import uuid
 
@@ -57,12 +57,42 @@ class ProductService:
 
         return response
 
+    async def check_inventory(
+        self,
+        product_id: str,
+        quantity: int = 1
+    ) -> ProductAvailabilityResponse:
+        """
+        Valida la disponibilidad de inventario para una cantidad específica.
+        """
+        if quantity <= 0:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Requested quantity must be greater than zero"
+            )
+
+        product = await self.product_repo.get_by_id(product_id)
+        if not product:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Product {product_id} not found"
+            )
+
+        return ProductAvailabilityResponse(
+            product_id=product.id,
+            name=product.name,
+            requested_quantity=quantity,
+            available_stock=product.stock,
+            is_available=product.check_stock_availability(quantity),
+        )
+
     async def get_products(
         self,
         page: int = 1,
         page_size: int = 20,
         category_id: str | None = None,
         search: str | None = None,
+        available_only: bool = False,
     ) -> ProductListResponse:
         """
         Lista de productos con caché.
@@ -75,6 +105,8 @@ class ProductService:
             cache_key += f":cat:{category_id}"
         if search:
             cache_key += f":s:{search}"
+        if available_only:
+            cache_key += ":avail:1"
 
         cached = await self.cache.get(cache_key)
         if cached:
@@ -86,6 +118,7 @@ class ProductService:
             page_size=page_size,
             category_id=category_id,
             search=search,
+            available_only=available_only,
         )
 
         items = [

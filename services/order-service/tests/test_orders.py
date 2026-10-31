@@ -170,3 +170,85 @@ async def test_get_order_history(client: AsyncClient, test_order):
     events = response.json()
     assert len(events) >= 1
     assert events[0]["event_type"] == "ORDER_CREATED"
+
+
+# ─── Discount and Validation Tests ───────────────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_create_order_with_valid_discount(client: AsyncClient, mock_product):
+    with patch(
+        "app.commands.order_commands.OrderCommandHandler._validate_products",
+        new_callable=AsyncMock
+    ) as mock_validate:
+        from app.schemas.order import ProductValidation
+        mock_validate.return_value = {
+            "product-123": ProductValidation(
+                id="product-123",
+                name="Test Product",
+                price=Decimal("100.00"),
+                stock=10,
+                is_active=True
+            )
+        }
+
+        response = await client.post("/api/v1/orders", json={
+            "items": [{"product_id": "product-123", "quantity": 2}],
+            "shipping_address": "Calle 45 # 10-20, Bogota",
+            "notes": "Discount test",
+            "discount_code": "SAVE10"
+        })
+
+    assert response.status_code == 201
+    data = response.json()
+    assert data["status"] == "pending"
+    # Subtotal 200.00 - 10% (20.00) = 180.00
+    assert data["total"] == "180.00"
+
+
+@pytest.mark.asyncio
+async def test_create_order_with_invalid_discount(client: AsyncClient, mock_product):
+    with patch(
+        "app.commands.order_commands.OrderCommandHandler._validate_products",
+        new_callable=AsyncMock
+    ) as mock_validate:
+        from app.schemas.order import ProductValidation
+        mock_validate.return_value = {
+            "product-123": ProductValidation(
+                id="product-123",
+                name="Test Product",
+                price=Decimal("50.00"),
+                stock=10,
+                is_active=True
+            )
+        }
+
+        response = await client.post("/api/v1/orders", json={
+            "items": [{"product_id": "product-123", "quantity": 1}],
+            "shipping_address": "Calle 45 # 10-20, Bogota",
+            "discount_code": "NOTREAL"
+        })
+
+    assert response.status_code == 400
+    assert "Invalid discount code" in response.json()["detail"]
+
+
+@pytest.mark.asyncio
+async def test_create_order_missing_shipping_address(client: AsyncClient):
+    response = await client.post("/api/v1/orders", json={
+        "items": [{"product_id": "product-123", "quantity": 1}],
+        "shipping_address": "   ",
+        "notes": ""
+    })
+    assert response.status_code == 400
+    assert "Shipping address is required" in response.json()["detail"]
+
+
+@pytest.mark.asyncio
+async def test_cancel_order_short_reason(client: AsyncClient, test_order):
+    response = await client.post(
+        f"/api/v1/orders/{test_order['id']}/cancel",
+        headers={"x-user-id": "dev-user-id", "x-user-role": "user"},
+        params={"reason": "no"}
+    )
+    assert response.status_code == 400
+    assert "at least 5 characters" in response.json()["detail"]

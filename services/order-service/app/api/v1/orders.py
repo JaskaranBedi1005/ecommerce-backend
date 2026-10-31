@@ -125,6 +125,7 @@ async def get_order(
 )
 async def cancel_order(
     order_id: str,
+    reason: str = Query(default="User requested cancellation", description="Motivo de la cancelación"),
     current_user: dict = Depends(get_current_user),
     service: OrderService = Depends(get_order_service),
 ):
@@ -135,7 +136,8 @@ async def cancel_order(
     """
     return await service.cancel_order(
         order_id=order_id,
-        user_id=current_user["user_id"]
+        user_id=current_user["user_id"],
+        reason=reason,
     )
 
 

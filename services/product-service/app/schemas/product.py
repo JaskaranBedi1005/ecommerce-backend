@@ -57,6 +57,7 @@ class ProductResponse(BaseModel):
     description: str | None
     price: Decimal
     stock: int
+    is_available: bool = True
     category_id: str | None
     category_name: str | None = None
     image_url: str | None
@@ -77,6 +78,7 @@ class ProductResponse(BaseModel):
             "description": product.description,
             "price": product.price,
             "stock": product.stock,
+            "is_available": product.is_available,
             "category_id": product.category_id,
             "category_name": product.category.name if product.category else None,
             "image_url": product.image_url,
@@ -84,6 +86,14 @@ class ProductResponse(BaseModel):
             "created_at": product.created_at,
         }
         return cls(**data)
+
+
+class ProductAvailabilityResponse(BaseModel):
+    product_id: str
+    name: str
+    requested_quantity: int
+    available_stock: int
+    is_available: bool
 
 
 class ProductListResponse(BaseModel):
