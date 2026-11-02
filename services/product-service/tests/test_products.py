@@ -151,3 +151,66 @@ async def test_get_products_search(client: AsyncClient, test_category):
     data = response.json()
     assert data["total"] == 1
     assert data["items"][0]["name"] == "iPhone 15"
+
+
+# ─── Availability & Inventory ────────────────────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_get_products_filter_by_availability(client: AsyncClient, test_category):
+    # Create in-stock product
+    await client.post("/api/v1/products", json={
+        "name": "In Stock Item",
+        "description": "Has stock",
+        "price": 25.00,
+        "stock": 10,
+        "category_id": test_category.id,
+    })
+    # Create out-of-stock product
+    await client.post("/api/v1/products", json={
+        "name": "Out of Stock Item",
+        "description": "Zero stock",
+        "price": 30.00,
+        "stock": 0,
+        "category_id": test_category.id,
+    })
+
+    # All products
+    response_all = await client.get("/api/v1/products")
+    assert response_all.status_code == 200
+    assert response_all.json()["total"] == 2
+
+    # Filtered by availability
+    response_avail = await client.get("/api/v1/products?available_only=true")
+    assert response_avail.status_code == 200
+    avail_data = response_avail.json()
+    assert avail_data["total"] == 1
+    assert avail_data["items"][0]["name"] == "In Stock Item"
+    assert avail_data["items"][0]["is_available"] is True
+
+
+@pytest.mark.asyncio
+async def test_check_product_inventory_available(client: AsyncClient, test_product):
+    response = await client.get(f"/api/v1/products/{test_product.id}/availability?quantity=5")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["product_id"] == test_product.id
+    assert data["requested_quantity"] == 5
+    assert data["available_stock"] == 10
+    assert data["is_available"] is True
+
+
+@pytest.mark.asyncio
+async def test_check_product_inventory_insufficient(client: AsyncClient, test_product):
+    response = await client.get(f"/api/v1/products/{test_product.id}/availability?quantity=50")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["product_id"] == test_product.id
+    assert data["requested_quantity"] == 50
+    assert data["available_stock"] == 10
+    assert data["is_available"] is False
+
+
+@pytest.mark.asyncio
+async def test_check_product_inventory_not_found(client: AsyncClient):
+    response = await client.get("/api/v1/products/non-existent-product/availability?quantity=1")
+    assert response.status_code == 404

@@ -109,5 +109,16 @@ class Product(Base):
         lazy="select"
     )
 
+    @property
+    def is_available(self) -> bool:
+        """Determina si el producto está activo y tiene existencias disponibles."""
+        return self.is_active and self.stock > 0
+
+    def check_stock_availability(self, requested_quantity: int = 1) -> bool:
+        """Verifica si hay stock suficiente y el producto está activo."""
+        if requested_quantity <= 0:
+            return False
+        return self.is_active and self.stock >= requested_quantity
+
     def __repr__(self) -> str:
         return f"<Product id={self.id} name={self.name} price={self.price}>"

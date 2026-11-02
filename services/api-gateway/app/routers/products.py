@@ -1,9 +1,9 @@
-from fastapi import APIRouter, Request, Depends, HTTPException, status
+import urllib.parse
+from fastapi import APIRouter, Request, Depends, HTTPException, status, Query
 from fastapi_limiter.depends import RateLimiter
 from app.core.config import settings
 from app.core.security import require_auth, optional_auth
 from app.routers.users import proxy_request
-
 
 router = APIRouter(prefix="/api", tags=["Products"])
 
@@ -55,13 +55,54 @@ async def create_category(
     dependencies=[Depends(RateLimiter(times=200, seconds=60))])
 async def get_products(
     request: Request,
+    page: int = Query(default=1, ge=1, description="Page number"),
+    page_size: int = Query(default=20, ge=1, le=100, description="Page size"),
+    category_id: str | None = Query(default=None, description="Category filter"),
+    search: str | None = Query(default=None, description="Search keyword"),
+    available_only: bool = Query(default=False, description="Filter in-stock products"),
     payload: dict | None = Depends(optional_auth)
 ):
     extra_headers = {}
     if payload:
         extra_headers["X-User-ID"] = payload["sub"]
         extra_headers["X-User-Role"] = payload.get("role", "user")
-    url = f"{settings.PRODUCT_SERVICE_URL}/api/v1/products"
+
+    if search is not None:
+        search = search.strip()
+        if len(search) > 100:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Search query cannot exceed 100 characters"
+            )
+
+    params: dict[str, str | int] = {
+        "page": page,
+        "page_size": page_size,
+        "available_only": str(available_only).lower(),
+    }
+    if category_id:
+        params["category_id"] = category_id
+    if search:
+        params["search"] = search
+
+    query_str = urllib.parse.urlencode(params)
+    url = f"{settings.PRODUCT_SERVICE_URL}/api/v1/products?{query_str}"
+    return await proxy_request(request, url, extra_headers)
+
+
+@router.get("/products/{product_id}/availability",
+    dependencies=[Depends(RateLimiter(times=200, seconds=60))])
+async def get_product_availability(
+    request: Request,
+    product_id: str,
+    quantity: int = Query(default=1, ge=1, description="Requested quantity"),
+    payload: dict | None = Depends(optional_auth)
+):
+    extra_headers = {}
+    if payload:
+        extra_headers["X-User-ID"] = payload["sub"]
+        extra_headers["X-User-Role"] = payload.get("role", "user")
+    url = f"{settings.PRODUCT_SERVICE_URL}/api/v1/products/{product_id}/availability?quantity={quantity}"
     return await proxy_request(request, url, extra_headers)
 
 

@@ -116,11 +116,14 @@ class OrderCommandHandler:
     ) -> Order:
         validated_products = await self._validate_products(data.items)
 
-        total = Decimal("0")
+        subtotal = Decimal("0")
         for item in data.items:
             product = validated_products[item.product_id]
-            subtotal = product.price * item.quantity
-            total += subtotal
+            subtotal += product.price * item.quantity
+
+        from app.services.order_service import OrderService
+        discount_amount = OrderService.calculate_discount(subtotal, data.discount_code)
+        total = max(Decimal("0.00"), subtotal - discount_amount)
 
         order = Order(
             id=str(uuid.uuid4()),
@@ -154,6 +157,9 @@ class OrderCommandHandler:
             order_id=order.id,
             event_type=OrderEventType.ORDER_CREATED,
             event_data={
+                "subtotal": str(subtotal),
+                "discount_code": data.discount_code,
+                "discount_amount": str(discount_amount),
                 "total": str(total),
                 "items": [
                     {

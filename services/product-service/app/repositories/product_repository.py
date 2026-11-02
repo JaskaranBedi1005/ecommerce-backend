@@ -26,6 +26,7 @@ class ProductRepository:
         page_size: int = 20,
         category_id: str | None = None,
         search: str | None = None,
+        available_only: bool = False,
     ) -> tuple[list[Product], int]:
         """
         Retorna una tupla (productos, total).
@@ -39,16 +40,19 @@ class ProductRepository:
             .where(Product.is_active == True)
         )
 
-
         if category_id:
             base_query = base_query.where(
                 Product.category_id == category_id
             )
 
         if search:
-
             base_query = base_query.where(
                 Product.name.ilike(f"%{search}%")
+            )
+
+        if available_only:
+            base_query = base_query.where(
+                Product.stock > 0
             )
 
 

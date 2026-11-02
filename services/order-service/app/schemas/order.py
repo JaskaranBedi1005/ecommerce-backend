@@ -50,6 +50,7 @@ class OrderCreate(BaseModel):
     items: list[OrderItemCreate]
     shipping_address: str | None = None
     notes: str | None = None
+    discount_code: str | None = None
 
     @field_validator("items")
     @classmethod

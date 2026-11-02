@@ -12,6 +12,7 @@ from app.schemas.product import (
     ProductUpdate,
     ProductResponse,
     ProductListResponse,
+    ProductAvailabilityResponse,
     CategoryCreate,
     CategoryResponse,
 )
@@ -37,11 +38,11 @@ def get_product_service(
 
 @router.get("/products", response_model=ProductListResponse)
 async def get_products(
-
     page: int = Query(default=1, ge=1, description="Número de página"),
     page_size: int = Query(default=20, ge=1, le=100, description="Productos por página"),
     category_id: str | None = Query(default=None, description="Filtrar por categoría"),
     search: str | None = Query(default=None, description="Buscar por nombre"),
+    available_only: bool = Query(default=False, description="Filtrar solo productos con inventario disponible"),
     service: ProductService = Depends(get_product_service),
 ):
     """
@@ -53,7 +54,20 @@ async def get_products(
         page_size=page_size,
         category_id=category_id,
         search=search,
+        available_only=available_only,
     )
+
+
+@router.get("/products/{product_id}/availability", response_model=ProductAvailabilityResponse)
+async def check_product_availability(
+    product_id: str,
+    quantity: int = Query(default=1, ge=1, description="Cantidad requerida"),
+    service: ProductService = Depends(get_product_service),
+):
+    """
+    Verifica la disponibilidad de inventario para un producto y cantidad solicitada.
+    """
+    return await service.check_inventory(product_id=product_id, quantity=quantity)
 
 
 @router.get("/products/{product_id}", response_model=ProductResponse)
